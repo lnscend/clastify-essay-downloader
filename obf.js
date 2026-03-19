@@ -1,5 +1,6 @@
 /* To be run in the browser console with a Clastify document open, with the console scaled to the side as far/small as possible.
 Scroll to ensure that the annotations have loaded before running the script.
+Have the Info tab on the left sidebar selected.
 Two documents, one with the prefix 'Essay' and the other with the prefix 'Document' should be downloaded onto your device.
 Allow the site to download multiple files if prompted. */
 
@@ -42,26 +43,68 @@ Allow the site to download multiple files if prompted. */
   pdf.save('Essay -- '+document.title+'.pdf');
 })();
 
-// Annotations
+// Annotations + Criteria Text
 (()=>{
   try{
     const ann=document.querySelector('.react-pdf__Document canvas.annotation-canvas').annotations;
     if(!ann)throw 0;
-    const f=[...new Set(ann.map(a=>`${a.justification ? 'GOOD' : 'BAD'} | Page ${a.rectCoords[0].pageNumber} at ${Math.round(a.rectCoords[0].y * 100)}% | ${a.criterion}\n${a.subCriterion}. ${a.comment}`))].join('\n\n');
-    (async()=>{
-      const s=document.createElement("script");
-      s.src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
-      document.head.appendChild(s);
-      await new Promise(r=>s.onload=r);
-      const {jsPDF}=window.jspdf,p=new jsPDF(),m=15,W=p.internal.pageSize.getWidth(),H=p.internal.pageSize.getHeight(),L=7;
-      p.setFont("times","normal");p.setFontSize(11);
-      let y=m;
-      f.split(/\n\s*\n/).forEach(par=>{
-        const lines=p.splitTextToSize(par,W-2*m),h=lines.length*L;
-        if(y+h>H-m){p.addPage();y=m;}
-        lines.forEach(l=>{p.text(l,m,y);y+=L;});y+=L;
+
+    // Extract your criteria text first
+    function ExtractCriteriaText(rootElement) {
+      const criteriaBoxes = rootElement.querySelectorAll('.MuiBox-root.css-mro3c9');
+      const results = [];
+      criteriaBoxes.forEach(box => {
+        const titleEl = box.querySelector('h6.MuiTypography-subtitle2');
+        const scoreEl = box.querySelector('.MuiChip-label');
+        const textEl = box.querySelector('p.MuiTypography-body2');
+        if(titleEl && scoreEl && textEl) {
+          const title = titleEl.textContent.trim();
+          const score = scoreEl.textContent.trim();
+          const paragraph = textEl.textContent.trim().replace(/\s+/g, ' ');
+          results.push(`${title} (${score})\n${paragraph}`);
+        }
       });
-      p.save('Annotations -- '+document.title+'.pdf');
+      return results.join('\n\n');
+    };
+
+    // Assuming the criteria container is right after the <h5> element
+    const criteriaRoot = document.querySelector('h5').nextElementSibling;
+    const extractedText = ExtractCriteriaText(criteriaRoot);
+
+    // Build annotations text
+    const annotationText = [...new Set(ann.map(a=>`${a.justification ? 'GOOD' : 'BAD'} | Page ${a.rectCoords[0].pageNumber} at ${Math.round(a.rectCoords[0].y*100)}% | ${a.criterion}\n${a.subCriterion}. ${a.comment}`))].join('\n\n');
+
+    // Combine extracted text + annotations
+    const combinedText = extractedText + '\n'.repeat(7) + annotationText;
+
+    // Generate PDF
+    (async()=>{
+      const script=document.createElement("script");
+      script.src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
+      document.head.appendChild(script);
+      await new Promise(r=>script.onload=r);
+
+      const {jsPDF}=window.jspdf;
+      const pdf=new jsPDF();
+      const margin=15;
+      const pageWidth=pdf.internal.pageSize.getWidth();
+      const pageHeight=pdf.internal.pageSize.getHeight();
+      const lineHeight=7;
+
+      pdf.setFont("times","normal");
+      pdf.setFontSize(11);
+
+      let y=margin;
+      combinedText.split(/\n\s*\n/).forEach(par=>{
+        const lines=pdf.splitTextToSize(par,pageWidth-2*margin);
+        const paragraphHeight=lines.length*lineHeight;
+        if(y+paragraphHeight>pageHeight-margin){pdf.addPage(); y=margin;}
+        lines.forEach(l=>{pdf.text(l,margin,y); y+=lineHeight;});
+        y+=lineHeight;
+      });
+
+      pdf.save('Annotations -- '+document.title+'.pdf');
     })();
+
   }catch(e){console.log("No annotations found")}
 })();
