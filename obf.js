@@ -47,7 +47,7 @@ Allow the site to download multiple files if prompted. */
   try{
     const ann=document.querySelector('.react-pdf__Document canvas.annotation-canvas').annotations;
     if(!ann)throw 0;
-    const f=[...new Set(ann.map(a=>`Page ${a.rectCoords[0].pageNumber} at ${Math.round(a.rectCoords[0].y * 100)}% | ${a.criterion}\n${a.subCriterion}. ${a.comment}`))].join('\n\n');
+    const f=[...new Set(ann.map(a=>`${a.justification ? ✅ : ❌} Page ${a.rectCoords[0].pageNumber} at ${Math.round(a.rectCoords[0].y * 100)}% | ${a.criterion}\n${a.subCriterion}. ${a.comment}`))].join('\n\n');
     (async()=>{
       const s=document.createElement("script");
       s.src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
