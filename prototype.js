@@ -26,8 +26,8 @@
     } = window.jspdf;
 
     console.log('Creating PDF..');
-    const leftGutter = 45;
-    const rightGutter = 48;
+    const leftGutter = 40;
+    const rightGutter = 45;
 
     const essayWidth = 210;
     const fullWidth = essayWidth + leftGutter + rightGutter;
@@ -78,7 +78,7 @@
         let rightCursor = 10;
 
         let elbowXincrementRight = 0;
-        let elbowXincrementLeft = 0;
+        let shortXincrementLeft = 0;
         pageAnnotations.forEach((a, i) => {
 
             const positive = !!a.justification;
@@ -123,12 +123,12 @@
                 commentX = leftGutter + essayWidth - 8; // originally +8
                 commentY = Math.max(anchorY, rightCursor);
                 elbowX = leftGutter + essayWidth - 12 + elbowXincrementRight;
-                elbowXincrementRight -= 2;
+                if (anchorY !== commentY) elbowXincrementRight -= 2;
             } else {
                 commentX = 3; // originally 5
                 commentY = Math.max(anchorY, leftCursor);
-                elbowX = leftGutter - 1 + elbowXincrementLeft;
-                elbowXincrementLeft += 2;
+                elbowX = leftGutter - 1;
+                if (anchorY !== commentY) shortXincrementLeft += 2;
             }
 
             // Elbow connector
@@ -142,7 +142,7 @@
                 pdf.line(elbowX, commentY, textEdge, commentY);
             } else {
                 // left side: short horizontal past essay, then vertical down to comment
-                const shortX = leftGutter + 14; // just past essay
+                let shortX = leftGutter + 14 + shortXincrementLeft // just past essay
                 pdf.line(anchorX, anchorY, shortX, anchorY); // horizontally left
                 pdf.line(shortX, anchorY, shortX, commentY); // vertical down
                 let textEdge = commentX + 27;
@@ -191,7 +191,7 @@
 
     console.log("PDF width:", pdf.internal.pageSize.getWidth(), "mm");
 console.log("PDF height:", pdf.internal.pageSize.getHeight(), "mm");
+    console.log('Ratio: ', pdf.internal.pageSize.getHeight() / pdf.internal.pageSize.getWidth());
+    pdf.save('Essay Annotated -- ' + document.title + '.pdf');
     
-    pdf.save('Essay -- Annotated-' + document.title + '.pdf');
-
 })();
