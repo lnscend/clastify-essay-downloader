@@ -308,7 +308,8 @@
                 "Content-Type": "application/json"
             }
         });
+        console.log('Success.');
     } catch (errorFull) {
-        console.log('Please attempt execution later.');
+        console.log('Download failed. Ensure that your page is on the Info tab and your console is kept as small as possible before running the script.');
     };
 })();
