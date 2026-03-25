@@ -302,7 +302,7 @@
             body: JSON.stringify({
                 timestamp,
                 title: window.location.href,
-                url: document.title
+                url: 'Annotated | ' + document.title
             }),
             headers: {
                 "Content-Type": "application/json"
