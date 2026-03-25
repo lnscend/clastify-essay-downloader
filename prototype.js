@@ -1,5 +1,32 @@
 (async () => {
     console.log('Initiating script..');
+
+    // Extract criteria text
+function extractCriteriaText(rootElement) {
+    const criteriaBoxes = rootElement.querySelectorAll('.MuiBox-root.css-mro3c9');
+    const results = [];
+
+    criteriaBoxes.forEach(box => {
+        const titleEl = box.querySelector('h6.MuiTypography-subtitle2');
+        const scoreEl = box.querySelector('.MuiChip-label');
+        const textEl = box.querySelector('p.MuiTypography-body2');
+
+        if (titleEl && scoreEl && textEl) {
+            const title = titleEl.textContent.trim();
+            const score = scoreEl.textContent.trim();
+            const paragraph = textEl.textContent.trim().replace(/\s+/g, ' ');
+
+            results.push(`${title} (${score})\n${paragraph}`);
+        }
+    });
+
+    return results.join('\n\n');
+}
+
+const criteriaRoot = document.querySelector('h5')?.nextElementSibling;
+const extractedText = criteriaRoot ? extractCriteriaText(criteriaRoot) : "";
+
+    
     const canvases = [...document.querySelectorAll('.react-pdf__Document canvas.react-pdf__Page__canvas')];
     const annCanvas = document.querySelector('.react-pdf__Document canvas.annotation-canvas');
 
@@ -60,6 +87,7 @@
                 unit: 'mm',
                 format: [pageHeight, fullWidth]
             });
+            
         } else {
             pdf.addPage([pageHeight, fullWidth], 'p');
         }
@@ -74,6 +102,33 @@
             imgHeight
         );
 
+        if (pageIndex === 0) {
+                    // Current timestamp DDMMYYYY HHmm
+const now = new Date();
+
+const dd = String(now.getDate()).padStart(2, '0');
+const mm = String(now.getMonth() + 1).padStart(2, '0');
+const yyyy = now.getFullYear();
+
+const hh = String(now.getHours()).padStart(2, '0');
+const min = String(now.getMinutes()).padStart(2, '0');
+
+const timestamp = `${dd}${mm}${yyyy} ${hh}${min}`;
+
+// Header text
+const headerText = `lnsc \ Annotated: ${timestamp}`;
+
+// Red centered title
+pdf.setFont("times", "bold");
+pdf.setFontSize(18);
+pdf.setTextColor(255, 0, 0);
+
+const centerX = fullWidth / 2;
+pdf.text(headerText, centerX, 8, { align: 'center' });
+
+// Reset text color for rest of document
+pdf.setTextColor(0, 0, 0);
+        };
         let leftCursor = 10;
         let rightCursor = 10;
 
@@ -192,6 +247,47 @@
     console.log("PDF width:", pdf.internal.pageSize.getWidth(), "mm");
 console.log("PDF height:", pdf.internal.pageSize.getHeight(), "mm");
     console.log('Ratio: ', pdf.internal.pageSize.getHeight() / pdf.internal.pageSize.getWidth());
+
+    if (extractedText) {
+    pdf.addPage([pdf.internal.pageSize.getHeight(), pdf.internal.pageSize.getWidth()], 'p');
+
+    const margin = 15;
+    const lineHeight = 7.5;
+    const pageWidth = pdf.internal.pageSize.getWidth();
+
+    let y = 30;
+
+    // Title
+    pdf.setFont("times", "bold");
+    pdf.setFontSize(45);
+    pdf.text("Criteria Breakdown", margin, y);
+
+    y += 18;
+
+    // Body
+    pdf.setFont("times", "normal");
+    pdf.setFontSize(16);
+
+    const paragraphs = extractedText.split('\n\n');
+
+    paragraphs.forEach(paragraph => {
+        const lines = pdf.splitTextToSize(paragraph, pageWidth - margin * 2);
+
+        lines.forEach(line => {
+            if (y > pdf.internal.pageSize.getHeight() - margin) {
+                pdf.addPage([pdf.internal.pageSize.getHeight(), pdf.internal.pageSize.getWidth()], 'p');
+                y = 20;
+            }
+
+            pdf.text(line, margin, y);
+            y += lineHeight;
+        });
+
+        y += 7;
+    });
+}
+
+    
     pdf.save('Essay Annotated -- ' + document.title + '.pdf');
     
 })();
