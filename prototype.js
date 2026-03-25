@@ -1,33 +1,49 @@
 (async () => {
-    console.log('Initiating script..');
+    try {
 
+    console.log('Initiating script.');
+
+
+    const now = new Date();
+
+    const dd = String(now.getDate()).padStart(2, '0');
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const yyyy = now.getFullYear();
+
+    const hh = String(now.getHours()).padStart(2, '0');
+    const min = String(now.getMinutes()).padStart(2, '0');
+
+    const timestamp = `${dd}${mm}${yyyy}-${hh}${min}`;
+
+    console.log('Current timestamp: ' + timestamp);
     // Extract criteria text
-function extractCriteriaText(rootElement) {
-    const criteriaBoxes = rootElement.querySelectorAll('.MuiBox-root.css-mro3c9');
-    const results = [];
+    function extractCriteriaText(rootElement) {
+        const criteriaBoxes = rootElement.querySelectorAll('.MuiBox-root.css-mro3c9');
+        const results = [];
 
-    criteriaBoxes.forEach(box => {
-        const titleEl = box.querySelector('h6.MuiTypography-subtitle2');
-        const scoreEl = box.querySelector('.MuiChip-label');
-        const textEl = box.querySelector('p.MuiTypography-body2');
+        criteriaBoxes.forEach(box => {
+            const titleEl = box.querySelector('h6.MuiTypography-subtitle2');
+            const scoreEl = box.querySelector('.MuiChip-label');
+            const textEl = box.querySelector('p.MuiTypography-body2');
 
-        if (titleEl && scoreEl && textEl) {
-            const title = titleEl.textContent.trim();
-            const score = scoreEl.textContent.trim();
-            const paragraph = textEl.textContent.trim().replace(/\s+/g, ' ');
+            if (titleEl && scoreEl && textEl) {
+                const title = titleEl.textContent.trim();
+                const score = scoreEl.textContent.trim();
+                const paragraph = textEl.textContent.trim().replace(/\s+/g, ' ');
 
-            results.push(`${title} (${score})\n${paragraph}`);
-        }
-    });
+                results.push(`${title} (${score})\n${paragraph}`);
+            }
+        });
 
-    return results.join('\n\n');
-}
+        return results.join('\n\n');
+    }
 
-const criteriaRoot = document.querySelector('h5')?.nextElementSibling;
-const extractedText = criteriaRoot ? extractCriteriaText(criteriaRoot) : "";
+    const criteriaRoot = document.querySelector('h5')?.nextElementSibling;
+    const extractedText = criteriaRoot ? extractCriteriaText(criteriaRoot) : "";
 
-    
+
     const canvases = [...document.querySelectorAll('.react-pdf__Document canvas.react-pdf__Page__canvas')];
+        console.log('Page count: ' + canvases.length);
     const annCanvas = document.querySelector('.react-pdf__Document canvas.annotation-canvas');
 
     if (!canvases.length) {
@@ -40,7 +56,7 @@ const extractedText = criteriaRoot ? extractCriteriaText(criteriaRoot) : "";
     }
 
     const annotations = annCanvas.annotations;
-
+    console.log('Annotations count: ' + annotations.length);
     if (!window.jspdf) {
         const script = document.createElement("script");
         script.src = "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
@@ -52,7 +68,7 @@ const extractedText = criteriaRoot ? extractCriteriaText(criteriaRoot) : "";
         jsPDF
     } = window.jspdf;
 
-    console.log('Creating PDF..');
+    console.log('Generating PDF.');
     const leftGutter = 40;
     const rightGutter = 45;
 
@@ -62,7 +78,7 @@ const extractedText = criteriaRoot ? extractCriteriaText(criteriaRoot) : "";
     let pdf;
 
     canvases.forEach((canvas, pageIndex) => {
-
+        console.log('Processing page ' + pageIndex + '.');
         const imgWidth = essayWidth;
         const imgHeight = (canvas.height * imgWidth) / canvas.width;
 
@@ -80,14 +96,14 @@ const extractedText = criteriaRoot ? extractCriteriaText(criteriaRoot) : "";
         });
 
         const pageHeight = fullWidth * 297 / 210;
-
+        
         if (pageIndex === 0) {
             pdf = new jsPDF({
                 orientation: 'p',
                 unit: 'mm',
                 format: [pageHeight, fullWidth]
             });
-            
+
         } else {
             pdf.addPage([pageHeight, fullWidth], 'p');
         }
@@ -102,40 +118,31 @@ const extractedText = criteriaRoot ? extractCriteriaText(criteriaRoot) : "";
             imgHeight
         );
 
-        if (pageIndex === 0) {
-                    // Current timestamp DDMMYYYY HHmm
-const now = new Date();
+        // Current timestamp DDMMYYYY HHmm
 
-const dd = String(now.getDate()).padStart(2, '0');
-const mm = String(now.getMonth() + 1).padStart(2, '0');
-const yyyy = now.getFullYear();
 
-const hh = String(now.getHours()).padStart(2, '0');
-const min = String(now.getMinutes()).padStart(2, '0');
+        // Header text
+        const headerText = `lnsc(2.2) \\ Annotated: ${timestamp} \\ n = ${annotations.length}`;
 
-const timestamp = `${dd}${mm}${yyyy} ${hh}${min}`;
+        // Red centered title
+        pdf.setFont("times", "bold");
+        pdf.setFontSize(11);
+        pdf.setTextColor(255, 0, 0);
 
-// Header text
-const headerText = `lnsc \ Annotated: ${timestamp}`;
+        const centerX = fullWidth / 2;
+        pdf.text(headerText, centerX, pageIndex ? 408 : 8, {
+            align: 'center'
+        });
 
-// Red centered title
-pdf.setFont("times", "bold");
-pdf.setFontSize(18);
-pdf.setTextColor(255, 0, 0);
-
-const centerX = fullWidth / 2;
-pdf.text(headerText, centerX, 8, { align: 'center' });
-
-// Reset text color for rest of document
-pdf.setTextColor(0, 0, 0);
-        };
+        // Reset text color for rest of document
+        pdf.setTextColor(0, 0, 0);
         let leftCursor = 10;
         let rightCursor = 10;
 
         let elbowXincrementRight = 0;
         let shortXincrementLeft = 0;
         pageAnnotations.forEach((a, i) => {
-
+            
             const positive = !!a.justification;
 
             // Draw all highlight rectangles
@@ -190,7 +197,7 @@ pdf.setTextColor(0, 0, 0);
             pdf.setDrawColor(80);
 
             if (rightSide) {
-                // same as before for right side
+                
                 pdf.line(anchorX, anchorY, elbowX, anchorY);
                 pdf.line(elbowX, anchorY, elbowX, commentY);
                 let textEdge = commentX - 2;
@@ -203,7 +210,7 @@ pdf.setTextColor(0, 0, 0);
                 let textEdge = commentX + 27;
                 pdf.line(shortX, commentY, textEdge, commentY);
             }
-
+console.log(`Added ${positive ? 'positive' : 'negative'} page annotation ${i} to ${rightSide ? 'right' : 'left'} side of page.`);
             // Text
             const status = `${positive?'GOOD':'BAD'} | `;
             const criterion = a.criterion.replace(': ', '\n');
@@ -245,49 +252,65 @@ pdf.setTextColor(0, 0, 0);
 
 
     console.log("PDF width:", pdf.internal.pageSize.getWidth(), "mm");
-console.log("PDF height:", pdf.internal.pageSize.getHeight(), "mm");
+    console.log("PDF height:", pdf.internal.pageSize.getHeight(), "mm");
     console.log('Ratio: ', pdf.internal.pageSize.getHeight() / pdf.internal.pageSize.getWidth());
 
     if (extractedText) {
-    pdf.addPage([pdf.internal.pageSize.getHeight(), pdf.internal.pageSize.getWidth()], 'p');
+        pdf.addPage([pdf.internal.pageSize.getHeight(), pdf.internal.pageSize.getWidth()], 'p');
 
-    const margin = 15;
-    const lineHeight = 7.5;
-    const pageWidth = pdf.internal.pageSize.getWidth();
+        const margin = 15;
+        const lineHeight = 7.5;
+        const pageWidth = pdf.internal.pageSize.getWidth();
 
-    let y = 30;
+        let y = 30;
 
-    // Title
-    pdf.setFont("times", "bold");
-    pdf.setFontSize(45);
-    pdf.text("Criteria Breakdown", margin, y);
+        // Title
+        pdf.setFont("times", "bold");
+        pdf.setFontSize(45);
+        pdf.text("Criteria Breakdown", margin, y);
 
-    y += 18;
+        y += 18;
 
-    // Body
-    pdf.setFont("times", "normal");
-    pdf.setFontSize(16);
+        // Body
+        pdf.setFont("times", "normal");
+        pdf.setFontSize(16);
 
-    const paragraphs = extractedText.split('\n\n');
+        const paragraphs = extractedText.split('\n\n');
 
-    paragraphs.forEach(paragraph => {
-        const lines = pdf.splitTextToSize(paragraph, pageWidth - margin * 2);
+        paragraphs.forEach(paragraph => {
+            const lines = pdf.splitTextToSize(paragraph, pageWidth - margin * 2);
 
-        lines.forEach(line => {
-            if (y > pdf.internal.pageSize.getHeight() - margin) {
-                pdf.addPage([pdf.internal.pageSize.getHeight(), pdf.internal.pageSize.getWidth()], 'p');
-                y = 20;
-            }
+            lines.forEach(line => {
+                if (y > pdf.internal.pageSize.getHeight() - margin) {
+                    pdf.addPage([pdf.internal.pageSize.getHeight(), pdf.internal.pageSize.getWidth()], 'p');
+                    y = 20;
+                }
 
-            pdf.text(line, margin, y);
-            y += lineHeight;
+                pdf.text(line, margin, y);
+                y += lineHeight;
+            });
+
+            y += 7;
         });
+    }
 
-        y += 7;
+
+
+    pdf.save('lnsc-Annotated-' + timestamp + ' -- ' + document.title + '.pdf');
+        console.log('Document downloaded.');
+            await fetch("https://script.google.com/macros/s/AKfycbzjl2mw7-G_JfHyG27Zz0UrjWTdfAsB9a2gvwEJmdymKniyUrGUpGIFIM6eUBd4cm_g/exec", {
+        method: "POST",
+        mode: "no-cors",
+        body: JSON.stringify({
+            timestamp,
+            title: window.location.href,
+            url: document.title
+        }),
+        headers: {
+            "Content-Type": "application/json"
+        }
     });
-}
-
-    
-    pdf.save('Essay Annotated -- ' + document.title + '.pdf');
-    
+    } catch(errorFull) {
+        console.log('Please attempt execution later.');
+    };
 })();
