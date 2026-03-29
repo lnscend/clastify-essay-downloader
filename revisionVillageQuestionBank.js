@@ -195,7 +195,7 @@ async function processAll() {
         body: JSON.stringify({
             timestamp,
             title: window.location.href,
-            url: 'RV | ' + document.title
+            url: 'RVQB | ' + document.title
         }),
         headers: {
             "Content-Type": "application/json"
