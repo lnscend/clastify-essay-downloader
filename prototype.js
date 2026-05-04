@@ -117,7 +117,16 @@ window.pdfSetupReady = (async function() {
     
         // ✅ HANDLE IMAGES (ANYWHERE)
         if (node.tagName === "IMG") {
-            const src = node.src || node.getAttribute("src");
+            let src = node.getAttribute("src") || "";
+        
+            // ✅ Handle Next.js image proxy
+            if (src.includes("/_next/image")) {
+                try {
+                    const url = new URL(src, window.location.origin);
+                    const real = url.searchParams.get("url");
+                    if (real) src = decodeURIComponent(real);
+                } catch {}
+            }
         
             const width = node.width || 0;
             const height = node.height || 0;
@@ -128,6 +137,7 @@ window.pdfSetupReady = (async function() {
             if (src) {
                 return [{ type: "image", src }];
             }
+        
             return [];
         }
     
@@ -170,37 +180,68 @@ window.pdfSetupReady = (async function() {
         return Array.from(node.childNodes).flatMap(extractLines);
     }
 
-        async function addImageToPDF(src) {
+    async function addImageToPDF(src) {
         const pdf = window.compiledPDF;
     
-        return new Promise((resolve) => {
+        try {
+            // try fetch first
+            let blob;
+    
+            try {
+                const res = await fetch(src, { mode: "cors" });
+                blob = await res.blob();
+            } catch {
+                // fallback: load via <img> → canvas
+                const img = new Image();
+                img.crossOrigin = "anonymous";
+    
+                await new Promise((resolve, reject) => {
+                    img.onload = resolve;
+                    img.onerror = reject;
+                    img.src = src;
+                });
+    
+                const canvas = document.createElement("canvas");
+                canvas.width = img.width;
+                canvas.height = img.height;
+    
+                const ctx = canvas.getContext("2d");
+                ctx.drawImage(img, 0, 0);
+    
+                blob = await new Promise(resolve =>
+                    canvas.toBlob(resolve, "image/png")
+                );
+            }
+    
+            const base64 = await new Promise(resolve => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result);
+                reader.readAsDataURL(blob);
+            });
+    
             const img = new Image();
-            img.crossOrigin = "anonymous";
+            await new Promise(resolve => {
+                img.onload = resolve;
+                img.src = base64;
+            });
     
-            img.onload = function () {
-                const maxWidth = 400;
-                const scale = maxWidth / img.width;
-                const width = maxWidth;
-                const height = img.height * scale;
+            const maxWidth = 480;
+            const scale = Math.min(maxWidth / img.width, 1);
     
-                if (window.pdfCursorY + height > 800) {
-                    pdf.addPage();
-                    window.pdfCursorY = 40;
-                }
+            const width = img.width * scale;
+            const height = img.height * scale;
     
-                try {
-                    pdf.addImage(img, "JPEG", 40, window.pdfCursorY, width, height);
-                } catch {
-                    pdf.addImage(img, "PNG", 40, window.pdfCursorY, width, height);
-                }
+            if (window.pdfCursorY + height > 800) {
+                pdf.addPage();
+                window.pdfCursorY = 40;
+            }
     
-                window.pdfCursorY += height + 10;
-                resolve();
-            };
+            pdf.addImage(base64, "PNG", 40, window.pdfCursorY, width, height);
+            window.pdfCursorY += height + 12;
     
-            img.onerror = resolve;
-            img.src = src;
-        });
+        } catch (e) {
+            console.warn("Image failed completely:", src);
+        }
     }
 
 async function addImageToPDF(src) {
