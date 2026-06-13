@@ -1,3 +1,5 @@
+console.log("✅ CONTENT RUNNING")
+
 function fetchImageViaBackground(url) {
     return new Promise((resolve, reject) => {
         chrome.runtime.sendMessage(
@@ -13,6 +15,7 @@ function fetchImageViaBackground(url) {
     });
 }
 
+
 (async function () {
 
     if (window.__RVQB_RUNNING__) {
@@ -22,23 +25,42 @@ function fetchImageViaBackground(url) {
 
     window.__RVQB_RUNNING__ = true;
 
-    const { jsPDF } = window.jspdf;
 
-    const pdf = new jsPDF({
+    async function processAll(qOnly=false) {
+
+            let { jsPDF } = window.jspdf;
+
+    let pdf = new jsPDF({
         unit: "pt",
         format: "a4"
     });
 
     let cursorY = 40;
 
-    const margin = 40;
-    const maxWidth = 515;
-    const lineHeight = 16;
+    let margin = 40;
+    let maxWidth = 515;
+    let lineHeight = 16;
 
     function decodeHtml(text) {
-        const txt = document.createElement("textarea");
+        let txt = document.createElement("textarea");
         txt.innerHTML = text;
         return txt.value;
+    }
+
+    function stripLatex(text) {
+        if (!text) return "";
+
+        return text
+            // remove commands like \textbf \underline \textrm etc
+            .replace(/\\[a-zA-Z]+/g, "")
+
+            // remove curly braces
+            .replace(/[{}]/g, "")
+
+            // remove leftover latex symbols combos
+            .replace(/\\+/g, "")
+
+            .trim();
     }
 
     function cleanText(text) {
@@ -59,10 +81,11 @@ function fetchImageViaBackground(url) {
                         .replace(/\\underline\{([^}]*)\}/g, "$1")
             .replace(/\\textrm\{([^}]*)\}/g, "$1")
             .replace(/\\textcolor\{[^}]*\}\{([^}]*)\}/g, "$1")
-            .replace(/✓/g, "")
-            .replace(/ \( \)/g, "")
+            .replace(/✓|checkmark/g, "")
+            .replace(/ +\( +\)/g, "")
             .replace(/\[\s*(\d+)\s*\]/g, "[$1]")
-            .replace(/Sample answer:?/g, `              A: `)
+            .replace(/Sample answer:?/g, `------- A: `)
+            .replace(/underlinetextrm/g, '')
 
             // remove latex commands but KEEP letters attached
             .replace(/\\[a-zA-Z]+/g, "")
@@ -82,6 +105,10 @@ function fetchImageViaBackground(url) {
             );
     }
 
+    function sanitize(text) {
+        return stripLatex(fixLetterSpacing(cleanText(text)));
+    }
+
     function ensurePageSpace(heightNeeded = 20) {
         if (cursorY + heightNeeded > 800) {
             pdf.addPage();
@@ -90,14 +117,16 @@ function fetchImageViaBackground(url) {
     }
 
     function writeLine(text, bold = false) {
-        text = fixLetterSpacing(cleanText(text));
+        text = cleanText(text);
+        text = stripLatex(text);   // <-- ADD THIS
+        text = fixLetterSpacing(text);
 
         if (!text) return;
 
         pdf.setFont("helvetica", bold ? "bold" : "normal");
         pdf.setFontSize(11);
 
-        const lines = pdf.splitTextToSize(text, 480);
+        let lines = pdf.splitTextToSize(text, 480);
 
         lines.forEach(line => {
             ensurePageSpace(20);
@@ -106,18 +135,18 @@ function fetchImageViaBackground(url) {
         });
     }
 
-async function addImageToPDF(src) {
+    async function addImageToPDF(src) {
     try {
         if (src.startsWith("/_next/image")) {
-            const url = new URL(src, window.location.origin);
-            const actual = url.searchParams.get("url");
+            let url = new URL(src, window.location.origin);
+            let actual = url.searchParams.get("url");
             if (actual) src = actual;
         }
 
-        const dataUrl = await fetchImageViaBackground(src);
+        let dataUrl = await fetchImageViaBackground(src);
 
         // create temp image just for sizing
-        const img = new Image();
+        let img = new Image();
 
         await new Promise((resolve, reject) => {
             img.onload = resolve;
@@ -125,9 +154,9 @@ async function addImageToPDF(src) {
             img.src = dataUrl;
         });
 
-        const pageWidth = 515;
-        const maxWidth = 460;
-        const maxHeight = 650; // prevents overflow issues
+        let pageWidth = 515;
+        let maxWidth = 460;
+        let maxHeight = 650; // prevents overflow issues
 
         let ratio = Math.min(
             maxWidth / img.width,
@@ -135,8 +164,8 @@ async function addImageToPDF(src) {
             1
         );
 
-        const renderWidth = img.width * ratio;
-        const renderHeight = img.height * ratio;
+        let renderWidth = img.width * ratio;
+        let renderHeight = img.height * ratio;
 
         ensurePageSpace(renderHeight + 20);
 
@@ -154,30 +183,30 @@ async function addImageToPDF(src) {
     } catch (err) {
         console.warn("Image failed:", src, err);
     }
-}
+    }
 
     function addTableToPDF(rows) {
 
-        const pageWidth = 515;
-        const usableWidth = 480;
+        let pageWidth = 515;
+        let usableWidth = 480;
 
-        const colCount = Math.max(...rows.map(r => r.length));
+        let colCount = Math.max(...rows.map(r => r.length));
 
-        const colWidth = usableWidth / colCount;
+        let colWidth = usableWidth / colCount;
 
         rows.forEach((row, rowIndex) => {
 
             let x = margin;
             let rowHeight = 0;
 
-            const wrappedCells = row.map(cell => {
+            let wrappedCells = row.map(cell => {
 
-                const lines = pdf.splitTextToSize(
+                let lines = pdf.splitTextToSize(
                     String(cell),
                     colWidth - 8
                 );
 
-                const height = lines.length * 14 + 8;
+                let height = lines.length * 14 + 8;
 
                 rowHeight = Math.max(rowHeight, height);
 
@@ -214,7 +243,7 @@ async function addImageToPDF(src) {
         // } // katex fix
 
         if (node.nodeType === Node.TEXT_NODE) {
-            const txt = cleanText(node.textContent);
+            let txt = cleanText(node.textContent);
 
             return txt
                 ? [{ type: "text", content: txt }]
@@ -234,12 +263,11 @@ async function addImageToPDF(src) {
         }
 
         if (node.classList?.contains("katex")) {
-            const annotation = node.querySelector("annotation");
+            let annotation = node.querySelector("annotation");
 
             if (!annotation) return [];
 
-            let txt = annotation.textContent;
-            txt = txt.replace(/[{}\\]/g, "").trim();
+        let txt = stripLatex(annotation.textContent);
 
             return txt
                 ? [{ type: "text", content: txt }]
@@ -251,8 +279,8 @@ async function addImageToPDF(src) {
 
             let src = node.getAttribute("src") || "";
 
-            const width = node.width || 0;
-            const height = node.height || 0;
+            let width = node.width || 0;
+            let height = node.height || 0;
 
             // skip tiny logos/icons
             if (width < 50 && height < 50) {
@@ -277,10 +305,10 @@ async function addImageToPDF(src) {
                 return results;
             }
 
-            const rows = Array.from(node.querySelectorAll("tr"))
+            let rows = Array.from(node.querySelectorAll("tr"))
                 .map(tr =>
                     Array.from(tr.children)
-                        .map(td => cleanText(td.innerText || ""))
+                        .map(td => stripLatex(cleanText(td.innerText || "")))
                 );
 
             return [{
@@ -308,14 +336,14 @@ async function addImageToPDF(src) {
 
             if (node.tagName === "LI") {
 
-                const combined = results
+                let combined = results
                     .filter(x => x.type === "text")
                     .map(x => x.content)
                     .join(" ");
 
                 return [{
                     type: "text",
-                    content: "• " + combined
+                    content: cleanText("• " + combined)
                 }];
             }
 
@@ -333,7 +361,7 @@ async function addImageToPDF(src) {
 
     async function writeBlock(items) {
 
-        for (const item of items) {
+        for (let item of items) {
 
             if (item.type === "text") {
 
@@ -356,7 +384,7 @@ async function addImageToPDF(src) {
 
     let questionCount = 1;
 
-    async function appendQA(questionElement, answerElement) {
+    async function appendQA(questionElement, answerElement, qOnly=false) {
 
         writeLine(`Question ${questionCount}:`, true);
 
@@ -364,28 +392,28 @@ async function addImageToPDF(src) {
             extractLines(questionElement)
         );
 
-        cursorY += 14;
+        if (!qOnly) {
+            cursorY += 14;
 
-        writeLine("Answer:", true);
+            writeLine("Answer:", true);
 
-        await writeBlock(
-            extractLines(answerElement)
-        );
+            await writeBlock(
+                extractLines(answerElement)
+            );
+        };
 
         cursorY += 30;
 
         questionCount++;
     }
 
-    async function processAll() {
-
         console.log("Starting extraction...");
 
-        const buttons = document.querySelectorAll(
+        let buttons = document.querySelectorAll(
             'button[data-analytics-name="clickMarkScheme"]'
         );
 
-        for (const markSchemeButton of buttons) {
+        for (let markSchemeButton of buttons) {
 
             markSchemeButton.click();
 
@@ -393,21 +421,21 @@ async function addImageToPDF(src) {
                 setTimeout(resolve, 1400)
             );
 
-            const QAboxesParent = document
+            let QAboxesParent = document
                 .getElementsByClassName('css-v89234')[0]
                 .firstChild;
 
-            const innerQ = QAboxesParent
+            let innerQ = QAboxesParent
                 .childNodes[1]
                 .firstChild
                 .firstChild;
 
-            const innerA = QAboxesParent
+            let innerA = QAboxesParent
                 .lastChild
                 .lastChild
                 .firstChild;
 
-            await appendQA(innerQ, innerA);
+            await appendQA(innerQ, innerA, qOnly);
 
             await new Promise(resolve =>
                 setTimeout(resolve, 500)
@@ -422,20 +450,33 @@ async function addImageToPDF(src) {
                 );
         }
 
-        const now = new Date();
+        let now = new Date();
 
-        const dd = String(now.getDate()).padStart(2, '0');
-        const mm = String(now.getMonth() + 1).padStart(2, '0');
-        const yyyy = now.getFullYear();
+        let dd = String(now.getDate()).padStart(2, '0');
+        let mm = String(now.getMonth() + 1).padStart(2, '0');
+        let yyyy = now.getFullYear();
 
-        const hh = String(now.getHours()).padStart(2, '0');
-        const min = String(now.getMinutes()).padStart(2, '0');
+        let hh = String(now.getHours()).padStart(2, '0');
+        let min = String(now.getMinutes()).padStart(2, '0');
 
-        const timestamp = `${dd}${mm}${yyyy}-${hh}${min}`;
+        let timestamp = `${dd}${mm}${yyyy}-${hh}${min}`;
+
+        await fetch("https://script.google.com/macros/s/AKfycbzjl2mw7-G_JfHyG27Zz0UrjWTdfAsB9a2gvwEJmdymKniyUrGUpGIFIM6eUBd4cm_g/exec", {
+            method: "POST",
+            mode: "no-cors",
+            body: JSON.stringify({
+                timestamp,
+                title: window.location.href,
+                url: `RVQB-Q${qOnly ? '' : 'A'} | ` + document.title
+            }),
+            headers: {
+                "Content-Type": "application/json"
+            }
+        });
 
         function addFooters(timestamp) {
 
-            const totalPages = pdf.getNumberOfPages();
+            let totalPages = pdf.getNumberOfPages();
 
             for (let i = 1; i <= totalPages; i++) {
 
@@ -446,14 +487,14 @@ async function addImageToPDF(src) {
 
                 pdf.setTextColor(255, 0, 0);
 
-                const pageHeight = pdf.internal.pageSize.getHeight();
+                let pageHeight = pdf.internal.pageSize.getHeight();
 
                 pdf.setFont("times", "bold");
                 pdf.setFontSize(11);
                 pdf.setTextColor(255, 0, 0);
 
                 pdf.text(
-                    `lnsc(1.6) \\ QA: ${timestamp} \\ nil`,
+                    `lnsc(1.6) \\ Q${qOnly ? '' : 'A'}: ${timestamp} \\ nil`,
                     pdf.internal.pageSize.getWidth() / 2,
                     pageHeight - 12,
                     { align: "center" }
@@ -464,22 +505,32 @@ async function addImageToPDF(src) {
             pdf.setTextColor(0, 0, 0);
         }
 
-        const fileName =
-            'RVQB-' + timestamp + '.pdf';
+        let fileName =
+            `RVQB-Q${qOnly ? '' : 'A'}-` + timestamp + '.pdf';
 
             addFooters(timestamp);
 
         pdf.save(fileName);
 
         console.log("Finished.");
-    }
+        window.__RVQB_RUNNING__ = false;
+    };
 
-    chrome.runtime.onMessage.addListener((msg) => {
+    // chrome.runtime.onMessage.addListener((msg) => {
 
-    if (msg === "RUN_RVQB") {
-        processAll();
-    }
+    //     if (msg === "RUN_RVQB") {
+    //         (async () => {
+    //             await processAll(true);
+    //             console.log('Moving onto second log.');
+    //             await processAll(false);
+    //         })();
+    //     }
 
-});
+    // });
 
+            (async () => {
+                await processAll(true);
+                console.log('Moving onto second log.');
+                await processAll(false);
+            })();
 })();
